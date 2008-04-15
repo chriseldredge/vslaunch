@@ -20,7 +20,7 @@ namespace VSLaunch
 				this.lineNumber = 1;
 			}
 
-			filePath = url.AbsolutePath;
+			filePath = HttpUtility.UrlDecode(url.AbsolutePath);
 		}
 
 		public int LineNumber

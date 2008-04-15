@@ -17,5 +17,14 @@ namespace UnitTests
 			Assert.AreEqual("c:/projects/Fool/Fool.Apps.Content.Service/Metadata/DefaultMetadataService.cs", dec.FilePath);
 			Assert.AreEqual(204, dec.LineNumber);
 		}
+
+		[Test]
+		public void ParseDecodesEscapedCharacters()
+		{
+			dec = new UrlDecoder(new UriBuilder("vslaunch://c:/projects/Fool/Folder%20With%20Spaces/Foo.txt?line=21").Uri);
+
+			Assert.AreEqual("c:/projects/Fool/Folder With Spaces/Foo.txt", dec.FilePath);
+			Assert.AreEqual(21, dec.LineNumber);
+		}
 	}
 }

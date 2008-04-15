@@ -27,7 +27,7 @@ namespace VSLaunch
 					return;
 				}
 
-				new Program().LaunchFile(decoder.FilePath, decoder.LineNumber);	
+				new Program().LaunchFile(Path.GetFullPath(decoder.FilePath), decoder.LineNumber);	
 			}
 			catch (Exception e)
 			{
@@ -41,17 +41,38 @@ namespace VSLaunch
 
 			try
 			{
+				// First, get a running Visual Studio instance
 				dte2 = (DTE2) Marshal.GetActiveObject("VisualStudio.DTE.8.0");
 			}
 			catch (COMException)
 			{
+				// If that fails, start Visual Studio
 				dte2 = (DTE2) Interaction.CreateObject("VisualStudio.DTE.8.0", "");
 				dte2.UserControl = true;
 			}
 
 			RetryComOperation(delegate
 			{
-				dte2.ItemOperations.OpenFile(path, null);
+				// TODO: open a solution if one is not opened.
+				foreach (Project project in dte2.Solution.Projects)
+				{
+					if (string.IsNullOrEmpty(project.FileName))
+					{
+						continue;
+					}
+					
+					string projectDirectory = Path.GetDirectoryName(project.FileName);
+					if (path.StartsWith(projectDirectory, StringComparison.InvariantCultureIgnoreCase))
+					{
+						if (OpenFileInProject(project, path, projectDirectory))
+						{
+							return;	
+						}
+					}
+				}
+
+				// The file is not in the solution, open it without associating the solution.
+				dte2.ItemOperations.OpenFile(path, EnvDTE.Constants.vsViewKindCode);
 			});
 
 			TextSelection ts = null;
@@ -76,6 +97,50 @@ namespace VSLaunch
 			{
 				dte2.MainWindow.Visible = true;
 			});
+		}
+
+		private bool OpenFileInProject(Project project, string path, string projectDirectory)
+		{
+			string projectRelativeFilePath = Path.GetDirectoryName(path.Substring(projectDirectory.Length+1));
+			string[] folders = projectRelativeFilePath.Split(Path.DirectorySeparatorChar);
+
+			ProjectItems group = project.ProjectItems;
+
+			foreach (string nested in folders)
+			{
+				try
+				{
+					group = group.Item(nested).ProjectItems;
+				}
+				catch (ArgumentException)
+				{
+					return false;
+				}
+			}
+
+			string fileName = Path.GetFileName(path);
+
+			int extension = fileName.IndexOf(".aspx.");
+			if (extension > 0)
+			{
+				// Index.aspx.cs and Index.aspx.designer.cs will be children of Index.aspx
+				group = group.Item(fileName.Substring(0, extension+5)).ProjectItems;
+			}
+
+			ProjectItem item;
+
+			try
+			{
+				item = group.Item(fileName);
+			}
+			catch (ArgumentException)
+			{
+				return false;
+			}
+
+			item.Open(EnvDTE.Constants.vsViewKindCode);
+			item.Document.Activate();
+			return true;
 		}
 
 		private delegate void Operation();
