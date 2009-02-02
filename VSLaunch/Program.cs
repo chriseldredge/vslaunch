@@ -38,16 +38,18 @@ namespace VSLaunch
 		private void LaunchFile(string path, int lineNumber)
 		{
 			DTE2 dte2;
+			string progId = "VisualStudio.DTE." + System.Configuration.ConfigurationManager.AppSettings["VisualStudioVersion"];
 
 			try
 			{
 				// First, get a running Visual Studio instance
-				dte2 = (DTE2) Marshal.GetActiveObject("VisualStudio.DTE.8.0");
+				
+				dte2 = (DTE2)Marshal.GetActiveObject(progId);
 			}
 			catch (COMException)
 			{
 				// If that fails, start Visual Studio
-				dte2 = (DTE2) Interaction.CreateObject("VisualStudio.DTE.8.0", "");
+				dte2 = (DTE2) Interaction.CreateObject(progId, "");
 				dte2.UserControl = true;
 			}
 
