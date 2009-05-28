@@ -3,12 +3,11 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using EnvDTE80;
-using Microsoft.VisualBasic;
 using EnvDTE;
 
 namespace VSLaunch
 {
-	class Program
+	public class Program
 	{
 		static void Main(string[] args)
 		{
@@ -29,6 +28,10 @@ namespace VSLaunch
 
 				new Program().LaunchFile(Path.GetFullPath(decoder.FilePath), decoder.LineNumber);	
 			}
+			catch (InvalidOperationException e)
+			{
+				MessageBox.Show(e.Message);
+			}
 			catch (Exception e)
 			{
 				MessageBox.Show(e.Message + "\n" + e.StackTrace);
@@ -43,38 +46,34 @@ namespace VSLaunch
 			try
 			{
 				// First, get a running Visual Studio instance
-				
 				dte2 = (DTE2)Marshal.GetActiveObject(progId);
 			}
-			catch (COMException)
+			catch (COMException e)
 			{
-				// If that fails, start Visual Studio
-				dte2 = (DTE2) Interaction.CreateObject(progId, "");
-				dte2.UserControl = true;
+				throw new InvalidOperationException("Please open Visual Studio with an appropriate Solution.", e);
 			}
 
 			RetryComOperation(delegate
 			{
-				// TODO: open a solution if one is not opened.
-				foreach (Project project in dte2.Solution.Projects)
+				if (string.IsNullOrEmpty(dte2.Solution.FileName))
 				{
-					if (string.IsNullOrEmpty(project.FileName))
-					{
-						continue;
-					}
-					
-					string projectDirectory = Path.GetDirectoryName(project.FileName);
-					if (path.StartsWith(projectDirectory, StringComparison.InvariantCultureIgnoreCase))
-					{
-						if (OpenFileInProject(project, path, projectDirectory))
-						{
-							return;	
-						}
-					}
+					throw new InvalidOperationException("Please open an appropriate Solution.");
 				}
 
-				// The file is not in the solution, open it without associating the solution.
-				dte2.ItemOperations.OpenFile(path, EnvDTE.Constants.vsViewKindCode);
+				path = RebasePath(path, dte2.Solution.FileName);
+
+				ProjectItem item = dte2.Solution.FindProjectItem(path);
+
+				if (item != null)
+				{
+					item.Open(Constants.vsViewKindCode);
+					item.Document.Activate();
+				}
+				else
+				{
+					// The file is not in the solution, open it without associating the solution.
+					dte2.ItemOperations.OpenFile(path, EnvDTE.Constants.vsViewKindCode);
+				}
 			});
 
 			TextSelection ts = null;
@@ -101,57 +100,13 @@ namespace VSLaunch
 			});
 		}
 
-		private bool OpenFileInProject(Project project, string path, string projectDirectory)
-		{
-			string projectRelativeFilePath = Path.GetDirectoryName(path.Substring(projectDirectory.Length+1));
-			string[] folders = projectRelativeFilePath.Split(Path.DirectorySeparatorChar);
-
-			ProjectItems group = project.ProjectItems;
-
-			foreach (string nested in folders)
-			{
-				try
-				{
-					group = group.Item(nested).ProjectItems;
-				}
-				catch (ArgumentException)
-				{
-					return false;
-				}
-			}
-
-			string fileName = Path.GetFileName(path);
-
-			int extension = fileName.IndexOf(".aspx.");
-			if (extension > 0)
-			{
-				// Index.aspx.cs and Index.aspx.designer.cs will be children of Index.aspx
-				group = group.Item(fileName.Substring(0, extension+5)).ProjectItems;
-			}
-
-			ProjectItem item;
-
-			try
-			{
-				item = group.Item(fileName);
-			}
-			catch (ArgumentException)
-			{
-				return false;
-			}
-
-			item.Open(EnvDTE.Constants.vsViewKindCode);
-			item.Document.Activate();
-			return true;
-		}
-
 		private delegate void Operation();
 
-		private static readonly int RPC_E_SERVERCALL_RETRYLATER = -2147417846;
+		private const int RPC_E_SERVERCALL_RETRYLATER = -2147417846;
 
 		private void RetryComOperation(Operation operation)
 		{
-			int numTries = 10;
+			const int numTries = 10;
 			for (int i = 0; i < numTries; i++)
 			{
 				try
@@ -169,6 +124,22 @@ namespace VSLaunch
 
 				System.Threading.Thread.Sleep(500);
 			}
+		}
+
+		public static string RebasePath(string absolutePath, string solutionFile)
+		{
+			if (absolutePath.StartsWith(@"c:\projects\", StringComparison.InvariantCultureIgnoreCase))
+			{
+				int of = solutionFile.IndexOf(@"\projects\", StringComparison.InvariantCultureIgnoreCase);
+				if (!solutionFile.StartsWith(@"c:\projects\", StringComparison.InvariantCultureIgnoreCase) && of > 0)
+				{
+					var relPath = absolutePath.Substring(12);
+					var solutionPath = solutionFile.Substring(0, of + 10);
+
+					return Path.Combine(solutionPath, relPath);
+				}
+			}
+			return absolutePath;
 		}
 	}
 }
