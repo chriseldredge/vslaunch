@@ -1,5 +1,5 @@
 using System;
-using NUnit.Framework;
+using NUnit.Framework; using NUnitIs = NUnit.Framework.Is;
 using VSLaunch;
 
 namespace UnitTests
