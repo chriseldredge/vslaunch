@@ -1,4 +1,4 @@
-using NUnit.Framework; using NUnitIs = NUnit.Framework.Is;
+using NUnit.Framework; using Is = NUnit.Framework.Is;
 
 using VSLaunch;
 
@@ -12,7 +12,7 @@ namespace UnitTests
 		{
 			var result = Program.RebasePath(@"c:\projects\fool\tools\vslaunch\vslaunch\program.cs",
 			                                @"c:\projects\fool\tools\vslaunch\vslaunch.sln");
-			Assert.That(result, NUnitIs.EqualTo(@"c:\projects\fool\tools\vslaunch\vslaunch\program.cs"));
+			Assert.That(result, Is.EqualTo(@"c:\projects\fool\tools\vslaunch\vslaunch\program.cs"));
 		}
 
 		[Test]
@@ -20,7 +20,7 @@ namespace UnitTests
 		{
 			var result = Program.RebasePath(@"c:\projects\fool\tools\vslaunch\vslaunch\program.cs",
 																			@"c:\working\projects\fool\tools\vslaunch\vslaunch.sln");
-			Assert.That(result, NUnitIs.EqualTo(@"c:\working\projects\fool\tools\vslaunch\vslaunch\program.cs"));
+			Assert.That(result, Is.EqualTo(@"c:\working\projects\fool\tools\vslaunch\vslaunch\program.cs"));
 		}
 	}
 }
